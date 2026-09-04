@@ -69,6 +69,9 @@ class DeveloperExecutor:
         try:
             logger.info(f"Preparing proposal for execution review: target='{getattr(proposal, 'target_file', '')}', op='{getattr(proposal, 'operation', '')}'")
 
+            prov = getattr(proposal, "provider", None) if proposal else None
+            mod = getattr(proposal, "model", None) if proposal else None
+
             if not proposal or not isinstance(proposal, CodeChangeProposal) or not proposal.is_valid:
                 err = proposal.validation_error if proposal else "Invalid proposal object."
                 self.workflow_sm.reset()
@@ -87,6 +90,8 @@ class DeveloperExecutor:
                     overall_outcome=MultiStageOutcome.FAILED.value,
                     summary=f"Proposal is invalid: {err}",
                     error=err,
+                    provider=prov,
+                    model=mod,
                 )
                 self._last_execution_result = result
                 return result
@@ -115,6 +120,8 @@ class DeveloperExecutor:
                     overall_outcome=MultiStageOutcome.FAILED.value,
                     summary=f"Target validation failed: {err}",
                     error=str(err),
+                    provider=prov,
+                    model=mod,
                 )
                 self._last_execution_result = result
                 return result
@@ -139,6 +146,8 @@ class DeveloperExecutor:
                 overall_outcome="PENDING_APPROVAL",
                 summary=display,
                 error=None,
+                provider=prov,
+                model=mod,
             )
             self._last_execution_result = result
             return result
@@ -161,6 +170,8 @@ class DeveloperExecutor:
                 overall_outcome=MultiStageOutcome.FAILED.value,
                 summary=f"An unexpected error occurred: {safe_err}",
                 error=safe_err,
+                provider=getattr(proposal, "provider", None) if proposal else None,
+                model=getattr(proposal, "model", None) if proposal else None,
             )
             self._last_execution_result = result
             return result
@@ -175,6 +186,8 @@ class DeveloperExecutor:
         """Applies an approved proposal strictly through the Phase 7 application and verification system."""
         try:
             trusted_pending = self.applier.get_pending_proposal()
+            prov = getattr(trusted_pending, "provider", None) or (getattr(proposal, "provider", None) if proposal else None)
+            mod = getattr(trusted_pending, "model", None) or (getattr(proposal, "model", None) if proposal else None)
 
             # Duplicate approval protection:
             # If the change was already successfully applied and caller re-submits or approves again:
@@ -208,6 +221,8 @@ class DeveloperExecutor:
                         overall_outcome=cached.overall_outcome or MultiStageOutcome.COMPLETED.value,
                         summary=dup_summary,
                         error=None,
+                        provider=cached.provider,
+                        model=cached.model,
                     )
 
             if not trusted_pending:
@@ -228,6 +243,8 @@ class DeveloperExecutor:
                     overall_outcome=MultiStageOutcome.FAILED.value,
                     summary="No active pending code change proposal found. Generate a proposal first.",
                     error="No pending proposal.",
+                    provider=prov,
+                    model=mod,
                 )
                 self._last_execution_result = result
                 return result
@@ -256,6 +273,8 @@ class DeveloperExecutor:
                         overall_outcome=MultiStageOutcome.FAILED.value,
                         summary=err_msg,
                         error=err_msg,
+                        provider=prov,
+                        model=mod,
                     )
                     self._last_execution_result = result
                     return result
@@ -284,6 +303,8 @@ class DeveloperExecutor:
                         overall_outcome=MultiStageOutcome.FAILED.value,
                         summary=err_msg,
                         error=err_msg,
+                        provider=prov,
+                        model=mod,
                     )
                     self._last_execution_result = result
                     return result
@@ -328,6 +349,8 @@ class DeveloperExecutor:
                         overall_outcome=MultiStageOutcome.FAILED.value,
                         summary=err_msg,
                         error=err_msg,
+                        provider=prov,
+                        model=mod,
                     )
                     self._last_execution_result = result
                     return result
@@ -362,6 +385,8 @@ class DeveloperExecutor:
                     overall_outcome=MultiStageOutcome.CANCELLED.value,
                     summary="Change was not applied because permission was not granted.",
                     error="Permission denied.",
+                    provider=prov,
+                    model=mod,
                 )
                 self._last_execution_result = result
                 return result
@@ -522,6 +547,9 @@ class DeveloperExecutor:
                     error=app_result.verification_details.get("error"),
                 )
 
+            if (prov or mod) and "Provider:" not in summary:
+                summary = f"{summary} (Provider: {prov or 'unknown'}, Model: {mod or 'unknown'})"
+
             result = DeveloperExecutionResult(
                 success=app_result.success and app_result.verification_success,
                 status=status,
@@ -539,6 +567,8 @@ class DeveloperExecutor:
                 overall_outcome=overall_outcome,
                 summary=summary,
                 error=app_result.error,
+                provider=prov,
+                model=mod,
             )
             self._last_execution_result = result
             return result
@@ -572,6 +602,8 @@ class DeveloperExecutor:
                 overall_outcome=MultiStageOutcome.FAILED.value,
                 summary=f"An unexpected error occurred during execution: {safe_err}",
                 error=safe_err,
+                provider=prov if 'prov' in locals() else None,
+                model=mod if 'mod' in locals() else None,
             )
             self._last_execution_result = result
             return result
@@ -580,6 +612,8 @@ class DeveloperExecutor:
         """Explicitly denies the active pending proposal and clears pending state."""
         try:
             trusted_pending = self.applier.get_pending_proposal()
+            deny_prov = getattr(trusted_pending, "provider", None) if trusted_pending else None
+            deny_mod = getattr(trusted_pending, "model", None) if trusted_pending else None
             self.applier.clear_pending_proposal()
             if self.permission_manager:
                 self.permission_manager.revoke_write_permission()
@@ -602,6 +636,8 @@ class DeveloperExecutor:
                 overall_outcome="PERMISSION_DENIED",
                 summary="Change was not applied because permission was not granted.",
                 error="Permission denied.",
+                provider=deny_prov,
+                model=deny_mod,
             )
             self._last_execution_result = result
             return result
@@ -615,6 +651,8 @@ class DeveloperExecutor:
                 overall_outcome="FAILED",
                 summary=f"An unexpected error occurred: {safe_err}",
                 error=safe_err,
+                provider=None,
+                model=None,
             )
             self._last_execution_result = result
             return result
@@ -632,6 +670,10 @@ class DeveloperExecutor:
             f"- Symbol: {proposal.target_symbol or 'N/A'}",
             f"- Change: {proposal.description or proposal.rationale or 'Code change'}",
         ]
+        if getattr(proposal, "provider", None) or getattr(proposal, "model", None):
+            prov_str = proposal.provider or "unknown"
+            model_str = proposal.model or "unknown"
+            lines.append(f"- Provider: {prov_str} ({model_str})")
         if plan and plan.risks:
             lines.append(f"- Risks: {', '.join(plan.risks)}")
 

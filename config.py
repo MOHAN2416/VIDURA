@@ -11,6 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 
+# Model Router Allowlists
+ALLOWED_PROVIDERS = {"local", "cloud"}
+ALLOWED_LOCAL_MODELS = {"gemma4:e4b-it-qat"}
+ALLOWED_CLOUD_MODELS = {"gemma4:31b-cloud"}
+
+
 @dataclass(frozen=True)
 class Config:
     """VIDURA Configuration Settings."""
@@ -25,12 +31,24 @@ class Config:
         default_factory=lambda: Path(os.getenv("VIDURA_DB_PATH", str(BASE_DIR / "data" / "vidura.db"))).resolve()
     )
     
-    # Local model configuration defaults
+    # Model configuration defaults & router settings
     ollama_host: str = field(
         default_factory=lambda: os.getenv("OLLAMA_HOST") or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434"
     )
     ollama_model: str = field(
-        default_factory=lambda: os.getenv("OLLAMA_MODEL", "gemma4:e4b-it-qat")
+        default_factory=lambda: os.getenv("VIDURA_LOCAL_MODEL") or os.getenv("OLLAMA_MODEL", "gemma4:e4b-it-qat")
+    )
+    vidura_local_model: str = field(
+        default_factory=lambda: os.getenv("VIDURA_LOCAL_MODEL") or os.getenv("OLLAMA_MODEL", "gemma4:e4b-it-qat")
+    )
+    vidura_cloud_model: str = field(
+        default_factory=lambda: os.getenv("VIDURA_CLOUD_MODEL") or os.getenv("OLLAMA_CLOUD_MODEL", "gemma4:31b-cloud")
+    )
+    vidura_model_provider: str = field(
+        default_factory=lambda: os.getenv("VIDURA_MODEL_PROVIDER", "local")
+    )
+    vidura_developer_model_provider: str = field(
+        default_factory=lambda: os.getenv("VIDURA_DEVELOPER_MODEL_PROVIDER") or os.getenv("VIDURA_MODEL_PROVIDER", "local")
     )
     
     # Agent Loop settings
@@ -38,9 +56,19 @@ class Config:
         default_factory=lambda: int(os.getenv("AGENT_MAX_STEPS", "10"))
     )
     
-    # Optional developer cloud model configuration (never hardcoded, for future phases)
-    ollama_cloud_api_key: str | None = field(default_factory=lambda: os.getenv("OLLAMA_CLOUD_API_KEY") or None)
-    ollama_cloud_model: str | None = field(default_factory=lambda: os.getenv("OLLAMA_CLOUD_MODEL") or None)
+    # Cloud model configuration (never hardcoded, read at runtime)
+    ollama_cloud_api_key: str | None = field(
+        default_factory=lambda: os.getenv("VIDURA_CLOUD_API_KEY") or os.getenv("OLLAMA_CLOUD_API_KEY") or os.getenv("OLLAMA_API_KEY") or None
+    )
+    ollama_cloud_endpoint: str = field(
+        default_factory=lambda: os.getenv("VIDURA_CLOUD_ENDPOINT") or os.getenv("OLLAMA_CLOUD_ENDPOINT") or "https://ollama.com"
+    )
+    vidura_cloud_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("VIDURA_CLOUD_TIMEOUT_SECONDS", "60.0"))
+    )
+    ollama_cloud_model: str | None = field(
+        default_factory=lambda: os.getenv("VIDURA_CLOUD_MODEL") or os.getenv("OLLAMA_CLOUD_MODEL", "gemma4:31b-cloud")
+    )
 
     # Developer Testing settings
     test_timeout_seconds: int = field(

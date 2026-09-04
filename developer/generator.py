@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from config import load_config
 from models.base import BaseLLMProvider
+from models.errors import ModelProviderError
 from codebase.manager import CodebaseManager
 from developer.models import (
     CodeChangeProposal,
@@ -35,6 +36,13 @@ class CodeChangeGenerator:
         self.model = model
         self.codebase_manager = codebase_manager
         self.applier = applier
+
+    @property
+    def active_model(self) -> BaseLLMProvider | None:
+        """Resolves the dedicated developer model provider if router is configured."""
+        if self.model and hasattr(self.model, "get_developer_provider"):
+            return self.model.get_developer_provider()
+        return self.model
 
     def _is_protected_target(self, target_path: str | Path) -> bool:
         """Checks if target path matches protected security patterns (.git, .env, *.key, etc.)."""
@@ -161,14 +169,35 @@ class CodeChangeGenerator:
                 except Exception:
                     original_content = ""
 
+        active = self.active_model
+        provider_name = None
+        model_name = None
+        if active:
+            provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
+            model_name = getattr(active, "model_name", None)
+
         # 4. Synthesize proposed content using LLM provider or fallback synthesis
-        proposed_content, rationale = self._synthesize_proposal_content(
-            request=request,
-            target_file=relative_target,
-            operation=normalized_op,
-            target_symbol=target_symbol,
-            original_content=original_content,
-        )
+        try:
+            proposed_content, rationale = self._synthesize_proposal_content(
+                request=request,
+                target_file=relative_target,
+                operation=normalized_op,
+                target_symbol=target_symbol,
+                original_content=original_content,
+            )
+        except ModelProviderError as err:
+            logger.warning(f"Model provider error during proposal synthesis: {err}")
+            return CodeChangeProposal(
+                operation=normalized_op,
+                target_file=relative_target,
+                target_symbol=target_symbol,
+                description=request,
+                status=ProposalStatus.GENERATION_FAILED.value,
+                is_valid=False,
+                validation_error=str(err),
+                provider=provider_name,
+                model=model_name,
+            )
 
         proposal = CodeChangeProposal(
             operation=normalized_op,
@@ -181,6 +210,8 @@ class CodeChangeGenerator:
             status=ProposalStatus.PROPOSED.value,
             is_valid=True,
             validation_error=None,
+            provider=provider_name,
+            model=model_name,
         )
 
         # Register proposal into pending proposal store if applier is present
@@ -198,7 +229,8 @@ class CodeChangeGenerator:
         original_content: str,
     ) -> tuple[str, str]:
         """Queries LLM provider or uses synthesis logic to produce proposed content and rationale."""
-        if not self.model:
+        active = self.active_model
+        if not active:
             # Deterministic fallback when no LLM provider is attached
             if operation == ProposalOperation.CREATE_FILE.value:
                 proposed = f"# Proposed file: {target_file}\n# Request: {request}\n\ndef main():\n    pass\n"
@@ -236,7 +268,7 @@ class CodeChangeGenerator:
         ]
 
         try:
-            raw_res = self.model.generate(prompt_messages)
+            raw_res = active.generate(prompt_messages, task_type="developer", is_developer_task=True)
             # Clean json block wrapping if present
             cleaned = raw_res.strip()
             if "```" in cleaned:
@@ -250,6 +282,8 @@ class CodeChangeGenerator:
             rationale = data.get("rationale", f"Proposed code change for {target_file}.")
             if proposed_content:
                 return proposed_content, rationale
+        except ModelProviderError:
+            raise
         except Exception as err:
             logger.warning(f"LLM proposal synthesis fallback due to error: {err}")
 
@@ -431,13 +465,39 @@ class CodeChangeGenerator:
             original_content = ""
 
         # 4. Synthesize concrete code from plan
-        generated_code, explanation, affected_symbols, assumptions = self._synthesize_from_plan(
-            task=task,
-            plan=plan,
-            target_file=relative_target,
-            operation=operation,
-            original_content=original_content,
-        )
+        active = self.active_model
+        provider_name = None
+        model_name = None
+        if active:
+            provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
+            model_name = getattr(active, "model_name", None)
+
+        try:
+            generated_code, explanation, affected_symbols, assumptions = self._synthesize_from_plan(
+                task=task,
+                plan=plan,
+                target_file=relative_target,
+                operation=operation,
+                original_content=original_content,
+            )
+        except ModelProviderError as err:
+            logger.error(f"Model provider error during code generation: {err}")
+            return DeveloperGenerationResult(
+                target_file=relative_target,
+                operation=operation,
+                original_content=original_content,
+                proposed_content="",
+                generated_code="",
+                explanation=f"Provider error during code generation: {err}",
+                affected_symbols=task.target_symbols or [],
+                assumptions=[],
+                validation_status="provider_failure",
+                is_valid=False,
+                proposal=None,
+                errors=[str(err)],
+                provider=provider_name,
+                model=model_name,
+            )
 
         # Sanitize code to ensure pure source code
         generated_code = self._clean_source_code(generated_code)
@@ -455,6 +515,8 @@ class CodeChangeGenerator:
             status=ProposalStatus.PROPOSED.value,
             is_valid=True,
             validation_error=None,
+            provider=provider_name,
+            model=model_name,
         )
 
         # Register proposal with applier if available (Read-Only registration)
@@ -474,6 +536,8 @@ class CodeChangeGenerator:
             is_valid=True,
             proposal=proposal,
             errors=[],
+            provider=provider_name,
+            model=model_name,
         )
 
     def _synthesize_from_plan(
@@ -495,7 +559,8 @@ class CodeChangeGenerator:
             if c not in combined_constraints:
                 combined_constraints.append(c)
 
-        if not self.model:
+        active = self.active_model
+        if not active:
             # Deterministic template synthesis when model is None
             assumptions = [
                 "Generated code using deterministic template without active LLM provider.",
@@ -535,13 +600,14 @@ class CodeChangeGenerator:
             {
                 "role": "system",
                 "content": (
-                    "You are VIDURA's Developer Code Generator (Phase 8.3).\n"
+                    "You are VIDURA's Developer Code Generator acting as a Senior Software Engineer.\n"
                     "Generate complete, production-ready, clean source code to fulfill the DeveloperTask and DeveloperPlan.\n"
                     "RULES:\n"
                     "1. Return ONLY a valid JSON object matching the schema below.\n"
                     "2. The 'generated_code' MUST be the entire, complete file content. NEVER use ellipsis '...' or leave parts out.\n"
                     "3. Do NOT wrap 'generated_code' in markdown code fences (no ```python). Return raw source code text inside the JSON string.\n"
-                    "4. Strictly adhere to all constraints and preserve existing functionality.\n\n"
+                    "4. Strictly adhere to all constraints, existing conventions, import styles, and architectural boundaries.\n"
+                    "5. Do NOT include conversational filler or explanations outside the JSON object.\n\n"
                     "JSON Schema:\n"
                     "{\n"
                     '  "generated_code": "entire complete source code here",\n'
@@ -574,7 +640,7 @@ class CodeChangeGenerator:
         ]
 
         try:
-            raw_res = self.model.generate(prompt_messages)
+            raw_res = active.generate(prompt_messages, task_type="developer", is_developer_task=True)
             cleaned = raw_res.strip()
             if "```" in cleaned:
                 match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
@@ -592,6 +658,8 @@ class CodeChangeGenerator:
             assump = data.get("assumptions", [f"Implemented according to plan for {target_file}."])
             if gen_code:
                 return gen_code, explanation, symbols, assump
+        except ModelProviderError:
+            raise
         except Exception as err:
             logger.warning(f"LLM code synthesis failed or produced invalid JSON: {err}. Falling back to template synthesis.")
 

@@ -1,7 +1,7 @@
 import sys
 import logging
 from config import load_config
-from models import OllamaProvider
+from models import ModelRouter, ProviderConfigurationError
 from tools import (
     ToolRegistry,
     ListDirectoryTool,
@@ -150,8 +150,13 @@ def run_cli() -> None:
     """Runs the VIDURA CLI interactive chat loop using the Agent system."""
     config = load_config()
     
-    logger.info("Initializing VIDURA Local LLM Provider...")
-    provider = OllamaProvider(host=config.ollama_host, model=config.ollama_model)
+    logger.info("Initializing VIDURA Model Router...")
+    try:
+        router = ModelRouter(config=config)
+        provider = router
+    except ProviderConfigurationError as err:
+        print(f"❌ Configuration Error: {err}")
+        sys.exit(1)
     
     # Initialize Persistent Memory Store and Manager
     memory_store = MemoryStore(db_path=config.db_path)
@@ -187,11 +192,14 @@ def run_cli() -> None:
     tool_registry.register(ApplyCodeChangeTool(code_applier))
 
     # Display Startup Banner
+    caps = [k for k, v in provider.capabilities.to_dict().items() if v]
     print("=" * 60)
     print(f"{config.app_name}")
-    print("Local AI Assistant")
-    print(f"Model: {provider.model_name}")
     print(f"Provider: {provider.provider_name}")
+    print(f"Model: {provider.model_name}")
+    if hasattr(router, "developer_provider_type"):
+        print(f"Developer Provider: {router.developer_provider_type} ({router.developer_model_name})")
+    print(f"Capabilities: {', '.join(caps)}")
     print(f"Database: {config.db_path}")
     print(f"Codebase Index: {summary['python_files']} Python files | {summary['total_modules']} modules")
     print(f"Registered Tools: {', '.join(t.name for t in tool_registry.list_tools())}")
@@ -202,7 +210,10 @@ def run_cli() -> None:
     connected, status_msg = provider.check_connection()
     if not connected:
         print(f"⚠️  Connection Warning: {status_msg}")
-        print("Please check that Ollama is running locally and the model is pulled.\n")
+        if getattr(router, "provider_type", "") == "cloud":
+            print("To configure Ollama Cloud, export OLLAMA_API_KEY=<your_key> or VIDURA_CLOUD_API_KEY=<your_key>.\n")
+        else:
+            print("Please check that Ollama is running locally and the model is pulled.\n")
 
     # Initialize Agent orchestrator
     agent = Agent(

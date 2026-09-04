@@ -1,23 +1,36 @@
 import logging
 from typing import Any
 import ollama
-from models.base import BaseLLMProvider
+from models.base import ModelProvider, ProviderCapabilities
+from models.errors import ModelProviderError
 
 logger = logging.getLogger("VIDURA.models.local")
 
+DEFAULT_LOCAL_MODEL = "gemma4:e4b-it-qat"
+DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
-class OllamaProviderError(Exception):
+
+class OllamaProviderError(ModelProviderError):
     """Exception raised for errors encountered in the Ollama model provider."""
     pass
 
 
-class OllamaProvider(BaseLLMProvider):
+class OllamaProvider(ModelProvider):
     """Local LLM Provider utilizing Ollama."""
 
-    def __init__(self, host: str = "http://localhost:11434", model: str = "gemma4:e4b-it-qat") -> None:
+    def __init__(self, host: str = DEFAULT_OLLAMA_HOST, model: str = DEFAULT_LOCAL_MODEL) -> None:
         self._host = host.rstrip("/")
         self._model = model
         self._client = ollama.Client(host=self._host)
+        self._capabilities = ProviderCapabilities(
+            chat=True,
+            tool_calling=True,
+            vision=False,
+            reasoning=False,
+            coding=True,
+            cloud=False,
+            local=True,
+        )
 
     @property
     def model_name(self) -> str:
@@ -30,6 +43,11 @@ class OllamaProvider(BaseLLMProvider):
     @property
     def host(self) -> str:
         return self._host
+
+    @property
+    def capabilities(self) -> ProviderCapabilities:
+        """Returns the capabilities of the local Ollama provider."""
+        return self._capabilities
 
     def check_connection(self) -> tuple[bool, str]:
         """Verifies connection to Ollama server and availability of the target model.
@@ -86,10 +104,11 @@ class OllamaProvider(BaseLLMProvider):
 
         try:
             logger.debug(f"Sending chat request to {self._model} with {len(messages)} messages.")
+            chat_kwargs = {k: v for k, v in kwargs.items() if k not in ("task_type", "is_developer_task")}
             response = self._client.chat(
                 model=self._model,
                 messages=messages,
-                **kwargs
+                **chat_kwargs,
             )
             
             # Extract content from response
@@ -108,3 +127,7 @@ class OllamaProvider(BaseLLMProvider):
             error_msg = f"Failed to communicate with local Ollama server at {self._host}: {err}"
             logger.error(error_msg)
             raise OllamaProviderError(error_msg) from err
+
+
+# Clean alias for provider abstraction
+LocalProvider = OllamaProvider

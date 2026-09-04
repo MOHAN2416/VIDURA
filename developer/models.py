@@ -16,6 +16,7 @@ class ProposalStatus(str, Enum):
     TARGET_NOT_FOUND = "target_not_found"
     PERMISSION_DENIED = "permission_denied"
     UNSUPPORTED_OPERATION = "unsupported_operation"
+    GENERATION_FAILED = "generation_failed"
 
 
 class ApplicationStatus(str, Enum):
@@ -76,6 +77,8 @@ class CodeChangeProposal:
     is_valid: bool = True
     validation_error: str | None = None
     proposal_id: str | None = None
+    provider: str | None = None
+    model: str | None = None
 
     def __post_init__(self) -> None:
         if not self.proposal_id:
@@ -96,7 +99,30 @@ class CodeChangeProposal:
             "is_valid": self.is_valid,
             "validation_error": self.validation_error,
             "proposal_id": self.proposal_id,
+            "provider": self.provider,
+            "model": self.model,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CodeChangeProposal":
+        """Safely deserializes a dictionary into a CodeChangeProposal."""
+        if not isinstance(data, dict):
+            return cls(operation="", target_file="", is_valid=False)
+        return cls(
+            operation=str(data.get("operation", "")),
+            target_file=str(data.get("target_file", "")),
+            target_symbol=data.get("target_symbol"),
+            description=str(data.get("description", "")),
+            proposed_content=str(data.get("proposed_content", "")),
+            original_content=str(data.get("original_content", "")),
+            rationale=str(data.get("rationale", "")),
+            status=str(data.get("status", ProposalStatus.PROPOSED.value)),
+            is_valid=bool(data.get("is_valid", True)),
+            validation_error=data.get("validation_error"),
+            proposal_id=data.get("proposal_id"),
+            provider=data.get("provider"),
+            model=data.get("model"),
+        )
 
 
 @dataclass
@@ -169,6 +195,8 @@ class DeveloperGenerationResult:
     requires_plan_update: bool = False
     proposal: CodeChangeProposal | None = None
     errors: list[str] = field(default_factory=list)
+    provider: str | None = None
+    model: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Returns a JSON-serializable dictionary representation of generation result."""
@@ -186,6 +214,8 @@ class DeveloperGenerationResult:
             "requires_plan_update": self.requires_plan_update,
             "proposal": self.proposal.to_dict() if self.proposal else None,
             "errors": list(self.errors),
+            "provider": self.provider,
+            "model": self.model,
         }
 
     @classmethod
@@ -216,7 +246,13 @@ class DeveloperGenerationResult:
                 status=str(raw_proposal.get("status", ProposalStatus.PROPOSED.value)),
                 is_valid=bool(raw_proposal.get("is_valid", True)),
                 validation_error=raw_proposal.get("validation_error"),
+                proposal_id=raw_proposal.get("proposal_id"),
+                provider=raw_proposal.get("provider"),
+                model=raw_proposal.get("model"),
             )
+
+        prov = data.get("provider") or (proposal_obj.provider if proposal_obj else None)
+        mod = data.get("model") or (proposal_obj.model if proposal_obj else None)
 
         return cls(
             target_file=str(data.get("target_file", "")),
@@ -232,6 +268,8 @@ class DeveloperGenerationResult:
             requires_plan_update=bool(data.get("requires_plan_update", False)),
             proposal=proposal_obj,
             errors=[str(e) for e in data.get("errors", []) if e],
+            provider=prov,
+            model=mod,
         )
 
 
@@ -254,6 +292,8 @@ class DeveloperExecutionResult:
     requires_plan_update: bool = False
     summary: str = ""
     error: str | None = None
+    provider: str | None = None
+    model: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Returns JSON-serializable dictionary representation."""
@@ -274,6 +314,8 @@ class DeveloperExecutionResult:
             "requires_plan_update": self.requires_plan_update,
             "summary": self.summary,
             "error": self.error,
+            "provider": self.provider,
+            "model": self.model,
         }
 
     @classmethod
@@ -377,6 +419,8 @@ class DeveloperExecutionResult:
             requires_plan_update=bool(data.get("requires_plan_update", False)),
             summary=str(data.get("summary", "")),
             error=data.get("error"),
+            provider=data.get("provider", prop_obj.provider if prop_obj else None),
+            model=data.get("model", prop_obj.model if prop_obj else None),
         )
 
 
