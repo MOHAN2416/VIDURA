@@ -10,25 +10,21 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from config import Config, load_config
-from models.base import BaseLLMProvider, ProviderCapabilities
+from config import Config
+from models.base import ProviderCapabilities
 from models.local import LocalProvider
 from models.cloud import OllamaCloudProvider
 from models.router import ModelRouter
 from models.errors import (
     ProviderUnavailable,
     CloudSecurityViolation,
-    CloudContextLimitExceeded,
-    CloudUsageLimitReached,
-    ProviderConfigurationError,
 )
-from memory.models import Memory, MemoryCategory, ExperienceRecord
+from memory.models import MemoryCategory, ExperienceRecord
 from memory.store import MemoryStore
 from memory.manager import MemoryManager
 from codebase.manager import CodebaseManager
@@ -36,32 +32,24 @@ from permissions.manager import PermissionManager
 from developer.models import (
     CodeChangeProposal,
     ApplicationStatus,
-    CodeChangeResult,
 )
 from developer.applier import CodeChangeApplier
-from developer.verifier import CodeChangeVerifier
-from developer.generator import CodeChangeGenerator, DeveloperCodeGenerator
 from developer.executor import DeveloperExecutor
-from developer.testing import TestRunner
-from tools.registry import ToolRegistry
-from tools.developer import ProposeCodeChangeTool, ApplyCodeChangeTool, RunTestsTool
-from tools.rag import SearchCodebaseSemanticTool, GetRelevantCodeContextTool
-from agent.agent import Agent
+from tools.developer import ProposeCodeChangeTool
 from agent.loop import AgentLoop, claims_file_modification, claims_file_deletion, claims_test_success
 from agent.state import AgentState
 from self_development.security import (
     is_security_critical_target,
-    validate_scope,
     SelfDevelopmentRecursionError,
-    ElevatedAuthorizationRequiredError,
 )
-from self_development.models import SelfDevelopmentGoal, SelfDevelopmentCycleResult
+from self_development.models import SelfDevelopmentGoal
 from self_development.loop import SelfDevelopmentLoop
 from experience.manager import ExperienceManager
 from experience.models import ExperienceQuery
 from rag.manager import RAGManager
-from rag.models import RAGQuery, CodeChunk, RetrievedChunk, AssembledContext
+from rag.models import RAGQuery, CodeChunk
 from rag.index import RAGIndex
+
 
 
 # ==============================================================================

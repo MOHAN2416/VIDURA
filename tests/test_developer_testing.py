@@ -1,6 +1,4 @@
-import os
 import sys
-import time
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -16,11 +14,8 @@ from developer.test_models import (
     TestSummary,
 )
 from developer.testing import (
-    PytestOutputParser,
     TestPlanner,
     TestRunner,
-    ALLOWED_PYTEST_FLAGS,
-    FORBIDDEN_SHELL_CHARS_RE,
 )
 
 # Prevent pytest from attempting to collect helper and model classes as test suites
@@ -36,14 +31,11 @@ from developer.models import (
     CodeChangeProposal,
     ProposalOperation,
     ExecutionStage,
-    ExecutionStatus,
-    DeveloperExecutionResult,
 )
 from developer.applier import CodeChangeApplier
 from developer.executor import DeveloperExecutor
 from tools.developer import RunTestsTool
-from agent.loop import claims_test_success, AgentLoop
-from agent.state import AgentState
+from agent.loop import claims_test_success
 from models.base import BaseLLMProvider
 
 

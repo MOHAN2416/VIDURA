@@ -2,7 +2,6 @@ from typing import Any
 from tools.base import BaseTool, success_result, error_result
 from developer.generator import CodeChangeGenerator
 from developer.applier import CodeChangeApplier, UNSUPPORTED_OPERATIONS
-from developer.models import CodeChangeProposal
 
 
 class ProposeCodeChangeTool(BaseTool):

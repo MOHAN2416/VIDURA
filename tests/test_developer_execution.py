@@ -10,19 +10,18 @@ from planning.models import DeveloperPlan
 from developer.models import (
     CodeChangeProposal,
     ProposalOperation,
-    ProposalStatus,
     ExecutionStage,
     ExecutionStatus,
     DeveloperExecutionResult,
 )
-from developer.generator import CodeChangeGenerator, DeveloperCodeGenerator
+from developer.generator import DeveloperCodeGenerator
 from developer.applier import CodeChangeApplier
 from developer.verifier import CodeChangeVerifier
 from developer.executor import DeveloperExecutor
 from tools.developer import ApplyCodeChangeTool
 from tools.registry import ToolRegistry
 from agent.state import AgentState
-from agent.loop import AgentLoop, claims_file_modification
+from agent.loop import AgentLoop
 
 
 class MockLLM(BaseLLMProvider):

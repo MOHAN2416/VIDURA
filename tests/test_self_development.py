@@ -38,29 +38,19 @@ Covers requirements A through AJ:
 - AI. Duplicate approval cannot reapply a completed proposal
 """
 import json
-import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 
 from config import Config
 from models.base import ModelProvider, ProviderCapabilities
 from models.router import ModelRouter
-from models.routing import ReasonCode
-from models.errors import CloudSecurityViolation
 from codebase.manager import CodebaseManager
 from memory.manager import MemoryManager
 from memory.models import ExperienceRecord
 from memory.store import MemoryStore
 from permissions.manager import PermissionManager
-from developer.generator import CodeChangeGenerator as DeveloperCodeGenerator
-from developer.executor import DeveloperExecutor
-from developer.applier import CodeChangeApplier
-from developer.verifier import CodeChangeVerifier
 from developer.models import (
-    CodeChangeProposal,
-    CodeChangeResult,
-    VerificationResult,
     ExecutionStatus,
     DeveloperExecutionResult,
 )
@@ -68,8 +58,6 @@ from developer.test_models import TestResult as _TestResult, TestPlan as _TestPl
 from self_development.models import (
     SelfDevelopmentGoal,
     SelfDevelopmentPlan,
-    SelfDevelopmentEvaluation,
-    SelfDevelopmentCycleResult,
 )
 from self_development.security import (
     is_security_critical_target,
@@ -77,9 +65,7 @@ from self_development.security import (
     validate_operation,
     sanitize_experience_record,
     SelfDevelopmentDisabledError,
-    SelfDevelopmentScopeError,
     SelfDevelopmentRecursionError,
-    ElevatedAuthorizationRequiredError,
 )
 from self_development.analyzer import SelfDevelopmentAnalyzer
 from self_development.planner import SelfDevelopmentPlanner

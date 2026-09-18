@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from rag.models import CodeChunk, EmbeddingVector
+from rag.models import CodeChunk
 from rag.embeddings import cosine_similarity
 from config import load_config
 

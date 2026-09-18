@@ -31,7 +31,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest import mock
 import pytest
 
 from config import Config
@@ -40,14 +39,10 @@ from models.errors import (
     ProviderConfigurationError,
     ProviderUnavailable,
 )
-from models.local import LocalProvider
-from models.cloud import OllamaCloudProvider
 from models.routing import (
     TaskComplexity,
-    RoutingMode,
     ReasonCode,
     RoutingDecision,
-    classify_complexity,
 )
 from models.router import ModelRouter
 from task_understanding.models import DeveloperTask, TaskType
@@ -58,12 +53,10 @@ from developer.models import (
     ProposalOperation,
     ProposalStatus,
 )
-from developer.applier import CodeChangeApplier
 from permissions.manager import PermissionManager
 from tools.registry import ToolRegistry
 from tools.filesystem import ReadFileTool, ListDirectoryTool
 from agent.state import AgentState
-from agent.loop import AgentLoop
 
 
 class MockProvider(ModelProvider):

@@ -6,7 +6,6 @@ categorizes warnings and negative lessons, and formats advisory context for plan
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from memory.models import ExperienceRecord
 from memory.store import MemoryStore

@@ -13,7 +13,7 @@ from developer.models import (
     ProposalStatus,
     DeveloperGenerationResult,
 )
-from task_understanding.models import DeveloperTask, TaskType
+from task_understanding.models import DeveloperTask
 from planning.models import DeveloperPlan
 
 logger = logging.getLogger("VIDURA.developer.generator")

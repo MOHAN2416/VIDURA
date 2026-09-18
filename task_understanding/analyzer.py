@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-from typing import Any
 from models.base import BaseLLMProvider
 from task_understanding.models import DeveloperTask, TaskType
 

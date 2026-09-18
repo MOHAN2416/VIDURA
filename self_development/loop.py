@@ -1,12 +1,10 @@
 import logging
 import uuid
 from pathlib import Path
-from typing import Any
 
 from config import Config, load_config
 from codebase.manager import CodebaseManager
 from memory.manager import MemoryManager
-from memory.models import ExperienceRecord
 from models.base import BaseLLMProvider
 from developer.generator import CodeChangeGenerator as DeveloperCodeGenerator
 from developer.executor import DeveloperExecutor
@@ -20,21 +18,16 @@ from permissions.manager import PermissionManager
 from self_development.models import (
     SelfDevelopmentGoal,
     SelfDevelopmentPlan,
-    SelfDevelopmentEvaluation,
     SelfDevelopmentCycleResult,
 )
 from self_development.analyzer import SelfDevelopmentAnalyzer
 from self_development.planner import SelfDevelopmentPlanner
 from self_development.evaluator import SelfDevelopmentEvaluator
 from self_development.security import (
-    is_security_critical_target,
     validate_scope,
     validate_operation,
-    sanitize_experience_record,
     SelfDevelopmentDisabledError,
-    SelfDevelopmentScopeError,
     SelfDevelopmentRecursionError,
-    ElevatedAuthorizationRequiredError,
 )
 
 logger = logging.getLogger("VIDURA.self_development.loop")

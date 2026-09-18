@@ -1,6 +1,5 @@
 import json
 from typing import Any
-import pytest
 from models.base import BaseLLMProvider
 from agent import Agent, AgentLoop, AgentState
 

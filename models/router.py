@@ -24,7 +24,6 @@ from models.local import LocalProvider, DEFAULT_LOCAL_MODEL, DEFAULT_OLLAMA_HOST
 from models.cloud import OllamaCloudProvider, DEFAULT_CLOUD_MODEL
 from models.errors import (
     ProviderConfigurationError,
-    ProviderUnavailable,
     CombinedProviderError,
     CloudSecurityViolation,
     CloudUsageLimitReached,
@@ -42,7 +41,6 @@ from models.routing import (
 from models.security import (
     is_protected_file_target,
     contains_sensitive_data,
-    redact_secrets,
 )
 from models.usage import (
     CloudUsageTracker,

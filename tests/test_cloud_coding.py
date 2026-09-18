@@ -27,20 +27,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-import pytest
 
-from config import Config
 from models.base import (
     ProviderCapabilities,
     ModelProvider,
 )
 from models.errors import (
-    ModelProviderError,
     ProviderAuthenticationError,
     ProviderUnavailable,
 )
 from models.cloud import OllamaCloudProvider
-from models.local import LocalProvider
 from models.router import ModelRouter
 from developer.models import (
     CodeChangeProposal,
@@ -48,8 +44,6 @@ from developer.models import (
     ProposalStatus,
     ExecutionStatus,
     ExecutionStage,
-    DeveloperGenerationResult,
-    DeveloperExecutionResult,
 )
 from developer.generator import DeveloperCodeGenerator
 from developer.executor import DeveloperExecutor

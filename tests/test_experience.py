@@ -39,28 +39,22 @@ Covers requirements A through AI from Section 23 and Validation Scenarios from S
 """
 from __future__ import annotations
 
-import json
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from config import Config
 from memory.models import ExperienceRecord
 from memory.store import MemoryStore
 from memory.manager import MemoryManager
 from experience.models import LessonRecord, ExperienceQuery, ScoredExperience
 from experience.extractor import ExperienceExtractor, sanitize_text
-from experience.scorer import ExperienceScorer, tokenize
-from experience.retriever import ExperienceRetriever
-from experience.learning import LearningLayer
+from experience.scorer import ExperienceScorer
 from experience.manager import ExperienceManager
 
 from task_understanding.models import DeveloperTask, TaskType
-from planning.models import DeveloperPlan
 from planning.planner import DeveloperPlanner
 from codebase.manager import CodebaseManager
 from permissions.manager import PermissionManager
@@ -74,17 +68,13 @@ from developer.models import (
     CodeChangeResult,
     VerificationResult,
 )
-from developer.test_models import TestResult as DevTestResult, TestPlan as DevTestPlan
+from developer.test_models import TestResult as DevTestResult
 from developer.applier import CodeChangeApplier
-from developer.verifier import CodeChangeVerifier
 from developer.executor import DeveloperExecutor
 from self_development.models import (
     SelfDevelopmentGoal,
-    SelfDevelopmentPlan,
     SelfDevelopmentEvaluation,
-    SelfDevelopmentCycleResult,
 )
-from self_development.loop import SelfDevelopmentLoop
 from self_development.security import is_security_critical_target, validate_scope
 
 

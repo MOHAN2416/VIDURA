@@ -26,7 +26,6 @@ import logging
 import os
 import unittest.mock as mock
 from pathlib import Path
-from typing import Any
 
 import httpx
 import ollama
@@ -41,7 +40,6 @@ from models.cloud import (
     DEFAULT_CLOUD_MODEL,
     OllamaCloudProvider,
     normalize_endpoint,
-    sanitize_error,
 )
 from models.errors import (
     ModelProviderError,

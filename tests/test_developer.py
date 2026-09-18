@@ -6,8 +6,6 @@ from models.base import BaseLLMProvider
 from permissions import PermissionManager
 from developer import (
     CodeChangeProposal,
-    CodeChangeResult,
-    ProposalOperation,
     ProposalStatus,
     CodeChangeGenerator,
     CodeChangeApplier,

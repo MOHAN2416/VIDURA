@@ -1,11 +1,9 @@
 import json
 from pathlib import Path
 from typing import Any
-import pytest
 from models.base import BaseLLMProvider
 from codebase import (
     CodeFile,
-    ModuleInfo,
     CodebaseScanner,
     ASTParser,
     CodebaseIndex,

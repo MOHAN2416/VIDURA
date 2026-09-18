@@ -1,14 +1,11 @@
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Any
-from config import load_config
 from codebase import CodebaseManager
-from codebase.models import ModuleInfo
 from models.base import BaseLLMProvider
 from task_understanding.models import DeveloperTask, TaskType
-from planning.models import DeveloperPlan, PlannedComponent
+from planning.models import DeveloperPlan
 
 logger = logging.getLogger("VIDURA.planning.planner")
 

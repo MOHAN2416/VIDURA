@@ -10,7 +10,6 @@ import ast
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any
 
 from rag.models import CodeChunk
 from models.security import redact_secrets

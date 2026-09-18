@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from models.security import redact_secrets, contains_sensitive_data
+from models.security import redact_secrets
 
 logger = logging.getLogger("VIDURA.self_development.security")
 

@@ -1,7 +1,6 @@
 import os
 import logging
 from pathlib import Path
-from typing import Any
 from config import load_config
 from developer.models import CodeChangeProposal, VerificationResult
 

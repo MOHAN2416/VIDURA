@@ -18,7 +18,6 @@ from developer.test_models import (
     TestCoverageStatus,
     TestPlan,
     TestResult,
-    TestSummary,
 )
 
 logger = logging.getLogger("VIDURA.developer.testing")

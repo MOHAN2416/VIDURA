@@ -5,7 +5,6 @@ from typing import Any
 
 from developer.models import (
     CodeChangeProposal,
-    CodeChangeResult,
     VerificationResult,
     ExecutionStage,
     ExecutionStatus,

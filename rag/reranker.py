@@ -6,7 +6,6 @@ signals using Reciprocal Rank Fusion (RRF) and explainable multi-signal scoring.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from rag.models import CodeChunk, RetrievedChunk, RAGQuery
 

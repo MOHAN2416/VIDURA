@@ -12,9 +12,8 @@ from typing import Any
 
 from rag.models import CodeChunk, RetrievedChunk, RAGQuery, AssembledContext
 from rag.chunker import CodeAwareChunker
-from rag.embeddings import EmbeddingManager, BaseEmbeddingProvider
+from rag.embeddings import EmbeddingManager
 from rag.index import RAGIndex
-from rag.reranker import HybridReranker
 from rag.retriever import HybridRetriever
 from rag.context import ContextAssembler
 from models.security import is_protected_file_target, redact_secrets

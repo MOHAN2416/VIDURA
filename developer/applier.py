@@ -1,14 +1,12 @@
 import os
 import logging
 from pathlib import Path
-from typing import Any
 from config import load_config
 from permissions.manager import PermissionManager
 from developer.models import (
     CodeChangeProposal,
     CodeChangeResult,
     ProposalOperation,
-    ProposalStatus,
     ApplicationStatus,
 )
 from developer.verifier import CodeChangeVerifier

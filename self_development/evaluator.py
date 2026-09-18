@@ -1,10 +1,8 @@
 import logging
-from typing import Any
 
 from developer.models import (
     CodeChangeProposal,
     DeveloperExecutionResult,
-    ApplicationStatus,
     ExecutionStatus,
 )
 from self_development.models import (

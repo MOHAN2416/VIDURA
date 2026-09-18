@@ -1,20 +1,16 @@
 import json
-from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 import pytest
 
 from config import Config
 from models.base import BaseLLMProvider, ModelProvider, ProviderCapabilities
 from models.errors import (
-    ModelProviderError,
     ProviderUnavailable,
     ProviderConfigurationError,
-    UnsupportedCapability,
 )
-from models.local import OllamaProvider, LocalProvider, DEFAULT_LOCAL_MODEL
-from models.cloud import OllamaCloudProvider, DEFAULT_CLOUD_MODEL
-from models.router import ModelRouter, ALLOWED_PROVIDERS, ALLOWED_LOCAL_MODELS, ALLOWED_CLOUD_MODELS
+from models.local import LocalProvider
+from models.cloud import OllamaCloudProvider
+from models.router import ModelRouter
 from agent import Agent, AgentLoop, AgentState
 from permissions.manager import PermissionManager
 from tools.registry import ToolRegistry

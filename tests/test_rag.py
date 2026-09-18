@@ -1,6 +1,4 @@
 import json
-import sqlite3
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -14,10 +12,8 @@ from rag.embeddings import (
 )
 from rag.index import RAGIndex, RAG_INDEX_VERSION
 from rag.reranker import HybridReranker
-from rag.retriever import HybridRetriever
 from rag.context import ContextAssembler
 from rag.manager import RAGManager
-from codebase.manager import CodebaseManager
 from planning.planner import DeveloperPlanner
 from planning.models import DeveloperPlan
 from task_understanding.models import DeveloperTask, TaskType

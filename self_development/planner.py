@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Any
 
 from codebase.manager import CodebaseManager
 from task_understanding.models import DeveloperTask, TaskType

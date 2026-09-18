@@ -14,7 +14,6 @@ Tests cover:
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 import pytest
 from pathlib import Path
@@ -30,30 +29,21 @@ from models.errors import (
     ProviderTimeout,
 )
 from models.routing import (
-    RoutingMode,
     ReasonCode,
-    RoutingDecision,
 )
 from models.security import (
     is_protected_file_target,
     contains_sensitive_data,
-    check_sensitive_data,
     redact_secrets,
 )
 from models.usage import (
-    CloudUsageRecord,
     CloudUsageTracker,
-    estimate_tokens,
 )
 from models.router import ModelRouter
 from developer.models import (
     CodeChangeProposal,
-    DeveloperGenerationResult,
-    DeveloperExecutionResult,
 )
 from developer.generator import CodeChangeGenerator as DeveloperGenerator
-from task_understanding.models import DeveloperTask, TaskType
-from planning.models import DeveloperPlan
 from agent.state import AgentState
 from agent.loop import AgentLoop
 

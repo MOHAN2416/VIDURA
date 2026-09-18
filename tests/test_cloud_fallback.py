@@ -5,14 +5,12 @@ Verifies safe, deterministic, application-level fallback from Ollama Cloud
 """
 from __future__ import annotations
 
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import pytest
 
 from config import Config
 from models.base import ModelProvider, ProviderCapabilities
 from models.errors import (
-    ModelProviderError,
     ProviderUnavailable,
     ProviderConfigurationError,
     ProviderAuthenticationError,
@@ -22,10 +20,6 @@ from models.errors import (
 )
 from models.routing import (
     FailureCategory,
-    RoutingDecision,
-    RoutingMode,
-    TaskComplexity,
-    ReasonCode,
     classify_cloud_failure,
     is_fallback_eligible,
 )
