@@ -76,11 +76,6 @@ class MemoryStore:
                     cloud_request_id TEXT
                 );
             """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_task_type ON experience_records(task_type);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_success ON experience_records(success);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created_at ON experience_records(created_at);")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_failure_type ON experience_records(failure_type);")
-
             # Check for existing table schema and migrate any missing columns
             cursor = conn.cursor()
             cursor.execute("PRAGMA table_info(experience_records)")
@@ -115,6 +110,11 @@ class MemoryStore:
                         conn.execute(f"ALTER TABLE experience_records ADD COLUMN {col_name} {col_def};")
                     except Exception as alt_err:
                         logger.debug(f"Column {col_name} alter warning: {alt_err}")
+
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_task_type ON experience_records(task_type);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_success ON experience_records(success);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_created_at ON experience_records(created_at);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_failure_type ON experience_records(failure_type);")
 
     def _row_to_memory(self, row: sqlite3.Row) -> Memory:
         metadata = {}
