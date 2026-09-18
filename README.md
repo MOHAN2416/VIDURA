@@ -434,11 +434,3 @@ Change successfully applied and verified.
 - **Probabilistic LLM Synthesis**: While verification, parsing, and testing are 100% deterministic, initial natural language code generation remains subject to model capability limits.
 
 ---
-
-## 15. Resume Summary
-
-- **Local-First Architecture & Deterministic Safety**: Architected and implemented a local-first Python development assistant operating under strict default-deny permission boundaries, featuring realpath symlink resolution, protected file blacklisting, and anti-fabrication claim suppression.
-- **AST & Hybrid Codebase Intelligence**: Built a deterministic code understanding engine scanning 98 Python modules and 1,433 unique symbols via Python's `ast` module, paired with a hybrid RAG system storing 1,258 dense embeddings in SQLite with 45.44 ms average retrieval latency.
-- **Verified Developer Execution Pipeline**: Designed an end-to-end code synthesis and application pipeline that separates generation from execution, enforcing byte-for-byte physical disk verification, AST syntax compilation, and sandboxed `pytest` execution with zero shell invocation (`shell=False`).
-- **Intelligent Routing & Empirical Learning**: Developed a 5-tier complexity router supporting local quantized models (`gemma4:e4b-it-qat`) and cloud inference (`gemma4:31b-cloud`) with automatic fallback, alongside an experience memory engine that records empirical development outcomes into SQLite to prevent recurring failures.
-- **Production Rigor & Low Footprint**: Maintained a 100% pass rate across 456 automated regression tests running in 6.57 seconds, achieving a 0.15-second cold startup time and an idle memory footprint of ~111 MB RSS within a 16 GB CPU-only hardware envelope.
