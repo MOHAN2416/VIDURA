@@ -101,6 +101,45 @@ def claims_file_modification(text: str) -> bool:
     return any(phrase in lower for phrase in claim_phrases)
 
 
+def claims_file_deletion(text: str) -> bool:
+    """Detects if natural language text claims that a file or directory was deleted or removed."""
+    if not text:
+        return False
+    trimmed = text.strip()
+    if trimmed.startswith("🛑"):
+        return False
+    lower = trimmed.lower()
+    if (
+        "unsupported" in lower
+        or "cannot be deleted" in lower
+        or "not deleted" in lower
+        or "no files can be deleted" in lower
+        or "no files were deleted" in lower
+    ):
+        return False
+    deletion_phrases = [
+        "deleted the file",
+        "file was deleted",
+        "file has been deleted",
+        "i deleted the file",
+        "i deleted",
+        "i have deleted",
+        "removed the file",
+        "file was removed",
+        "file has been removed",
+        "i removed the file",
+        "i removed",
+        "i have removed",
+        "successfully deleted",
+        "successfully removed",
+        "erased the file",
+        "destroyed the file",
+        "file was unlinked",
+        "unlinked the file",
+    ]
+    return any(phrase in lower for phrase in deletion_phrases)
+
+
 def claims_test_success(text: str) -> bool:
     """Detects if natural language text claims that tests were run and passed."""
     if not text:
@@ -215,12 +254,23 @@ class AgentLoop:
         codebase_manager: CodebaseManager | None = None,
         developer_generator: DeveloperCodeGenerator | None = None,
         executor: DeveloperExecutor | None = None,
+        memory_manager: Any = None,
+        experience_manager: Any = None,
+        rag_manager: Any = None,
     ) -> None:
         self.model = model
         self.tool_registry = tool_registry
         self.task_analyzer = task_analyzer or DeveloperTaskAnalyzer()
         self.codebase_manager = codebase_manager
-        self.planner = planner or DeveloperPlanner(codebase_manager=self.codebase_manager, model=self.model)
+        self.memory_manager = memory_manager
+        self.experience_manager = experience_manager or (getattr(memory_manager, "experience_manager", None) if memory_manager else None)
+        self.rag_manager = rag_manager
+        self.planner = planner or DeveloperPlanner(
+            codebase_manager=self.codebase_manager,
+            model=self.model,
+            experience_manager=self.experience_manager,
+            rag_manager=self.rag_manager,
+        )
         ws_root = getattr(self.codebase_manager, "workspace_root", None) if self.codebase_manager else None
 
         applier_inst = None
@@ -241,6 +291,7 @@ class AgentLoop:
         self.developer_executor = executor or DeveloperExecutor(
             applier=applier_inst,
             workspace_root=ws_root,
+            experience_manager=self.experience_manager,
         )
         self.developer_generator.applier = applier_inst
         if self.tool_registry and self.tool_registry.get("apply_code_change"):
@@ -337,11 +388,34 @@ class AgentLoop:
 
             try:
                 raw_response = self.model.generate(state.messages)
+                if hasattr(self.model, "last_decision") and self.model.last_decision:
+                    ld = self.model.last_decision
+                    state.requested_provider = ld.requested_provider
+                    state.requested_model = ld.requested_model
+                    state.actual_provider = ld.actual_provider
+                    state.actual_model = ld.actual_model
+                    state.fallback_used = ld.fallback_used
+                    state.fallback_reason = ld.fallback_reason
+                    state.cloud_error = ld.cloud_error
+                    state.cloud_request_id = getattr(ld, "cloud_request_id", None)
+                    state.usage_metadata = getattr(ld, "usage_metadata", None)
             except Exception as err:
                 logger.error(f"[Step {state.step}] Model generation failed: {err}")
+                if hasattr(self.model, "last_decision") and self.model.last_decision:
+                    ld = self.model.last_decision
+                    state.requested_provider = ld.requested_provider
+                    state.requested_model = ld.requested_model
+                    state.actual_provider = ld.actual_provider
+                    state.actual_model = ld.actual_model
+                    state.fallback_used = ld.fallback_used
+                    state.fallback_reason = ld.fallback_reason
+                    state.cloud_error = ld.cloud_error
+                    state.cloud_request_id = getattr(ld, "cloud_request_id", None)
+                    state.usage_metadata = getattr(ld, "usage_metadata", None)
                 state.final_response = f"Error during model generation: {err}"
                 state.completed = False
                 break
+
 
             decision = self._parse_decision(raw_response)
 
@@ -370,6 +444,14 @@ class AgentLoop:
                     }
                 else:
                     if raw_response and not raw_response.strip().startswith("{"):
+                        if claims_file_deletion(raw_response):
+                            logger.warning(f"[Step {state.step}] Suppressed false model claim of deletion in direct text fallback.")
+                            state.current_action = "respond"
+                            state.action_content = raw_response
+                            state.final_response = "🛑 Deletion operations are unsupported in VIDURA. No files were deleted."
+                            state.completed = True
+                            break
+
                         if claims_file_modification(raw_response):
                             logger.warning(f"[Step {state.step}] Suppressed false model claim in direct text fallback.")
                             state.current_action = "respond"
@@ -414,6 +496,13 @@ class AgentLoop:
             logger.info(f"[Step {state.step}] Selected Action: '{action}'")
 
             if action == "respond":
+                # Check for false claim: LLM claiming file was deleted or removed
+                if claims_file_deletion(str(content)):
+                    logger.warning(f"[Step {state.step}] Suppressed false model claim of file deletion.")
+                    state.final_response = "🛑 Deletion operations are unsupported in VIDURA. No files were deleted."
+                    state.completed = True
+                    break
+
                 # Check for false claim: LLM claiming file was modified/created/applied without successful execution
                 if claims_file_modification(str(content)):
                     was_verified = (
@@ -501,6 +590,10 @@ class AgentLoop:
                 state.messages.append({"role": "user", "content": feedback})
 
         # Final false-claim safety check
+        if state.final_response and claims_file_deletion(state.final_response):
+            logger.warning("Suppressed false model claim of file deletion in final response.")
+            state.final_response = "🛑 Deletion operations are unsupported in VIDURA. No files were deleted."
+
         if state.final_response and claims_file_modification(state.final_response):
             was_verified = (
                 state.execution_result is not None and state.execution_result.success

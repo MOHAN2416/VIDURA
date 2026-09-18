@@ -15,6 +15,7 @@ from tools.codebase import (
     FindDependenciesTool,
 )
 from tools.developer import ProposeCodeChangeTool, ApplyCodeChangeTool, RunTestsTool
+from tools.rag import SearchCodebaseSemanticTool, GetRelevantCodeContextTool
 
 __all__ = [
     "BaseTool",
@@ -31,4 +32,6 @@ __all__ = [
     "ProposeCodeChangeTool",
     "ApplyCodeChangeTool",
     "RunTestsTool",
+    "SearchCodebaseSemanticTool",
+    "GetRelevantCodeContextTool",
 ]

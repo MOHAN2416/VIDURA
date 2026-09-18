@@ -38,13 +38,25 @@ class DeveloperPlanner:
         codebase_manager: CodebaseManager | None = None,
         model: BaseLLMProvider | None = None,
         workspace_root: str | Path | None = None,
+        experience_manager: Any = None,
+        rag_manager: Any = None,
     ) -> None:
         self.codebase_manager = codebase_manager or CodebaseManager(workspace_root=str(workspace_root) if workspace_root else None)
         self.model = model
+        self.experience_manager = experience_manager
+        self.rag_manager = rag_manager
         if workspace_root:
             self.workspace_root = Path(workspace_root).resolve()
         else:
             self.workspace_root = self.codebase_manager.scanner.workspace_root.resolve()
+
+    def create_plan(self, task: DeveloperTask) -> DeveloperPlan:
+        """Alias for plan()."""
+        return self.plan(task)
+
+    def create_developer_plan(self, task: DeveloperTask) -> DeveloperPlan:
+        """Alias for plan()."""
+        return self.plan(task)
 
     def plan(self, task: DeveloperTask) -> DeveloperPlan:
         """Analyzes a DeveloperTask against the actual codebase and returns a DeveloperPlan.
@@ -205,6 +217,30 @@ class DeveloperPlanner:
                         if imp not in affected_components:
                             affected_components.append(imp)
 
+            # If not discovered via direct keyword, query RAG hybrid retrieval if available
+            if not discovered and self.rag_manager:
+                try:
+                    from rag.models import RAGQuery
+                    rag_query = RAGQuery(query=task.goal, top_k=3, min_score=0.2)
+                    rag_candidates = self.rag_manager.retrieve(rag_query)
+                    for rc in rag_candidates:
+                        cand_rel = rc.chunk.relative_path
+                        # Authoritative filesystem check: target file must exist on disk
+                        cand_abs = (self.workspace_root / cand_rel).resolve()
+                        if cand_abs.exists() and cand_abs.is_file():
+                            if cand_rel not in relevant_files:
+                                relevant_files.append(cand_rel)
+                            discovered = True
+                            cand_mod = cand_rel.replace(".py", "").replace("/", ".")
+                            for dep in self.codebase_manager.find_dependencies(cand_mod):
+                                if dep not in dependencies:
+                                    dependencies.append(dep)
+                            for imp in self.codebase_manager.find_importers(cand_mod):
+                                if imp not in affected_components:
+                                    affected_components.append(imp)
+                except Exception as r_err:
+                    logger.warning(f"RAG target discovery encountered error: {r_err}")
+
             if not discovered:
                 requires_more_info = True
                 missing_reasons.append(
@@ -245,6 +281,51 @@ class DeveloperPlanner:
         for r in risks:
             if r not in unique_risks:
                 unique_risks.append(r)
+
+        # 6b. Retrieve Relevant Experiences & Advisory Warnings (Phase 11)
+        plan_experiences: list[dict[str, Any]] = []
+        if self.experience_manager:
+            try:
+                from experience.models import ExperienceQuery
+                exp_query = ExperienceQuery(
+                    query=task.goal,
+                    file_path=relevant_files[0] if relevant_files else None,
+                    symbol=relevant_symbols[0] if relevant_symbols else None,
+                    limit=5,
+                    min_score=0.15,
+                )
+                scored_exps = self.experience_manager.retrieve_experiences(exp_query)
+                for se in scored_exps:
+                    exp = se.experience
+                    plan_experiences.append(se.to_dict())
+                    if se.is_warning or not exp.success:
+                        warn_msg = (
+                            f"Advisory Warning from past experience: {exp.failure_reason or exp.result}. "
+                            f"Caution: {exp.recommendation or exp.lesson or 'Check regression impact.'}"
+                        )
+                        if warn_msg not in unique_risks:
+                            unique_risks.append(warn_msg)
+            except Exception as exp_err:
+                logger.warning(f"Error retrieving past experiences during planning: {exp_err}")
+
+        # 6c. Assemble Structured RAG Context (Phase 12)
+        assembled_rag_context = None
+        plan_chunks = []
+        if self.rag_manager:
+            try:
+                from rag.models import RAGQuery
+                rag_query = RAGQuery(
+                    query=task.goal,
+                    target_files=relevant_files,
+                    target_symbols=relevant_symbols,
+                    top_k=5,
+                    min_score=0.15,
+                )
+                ctx_obj = self.rag_manager.assemble_context(rag_query)
+                assembled_rag_context = ctx_obj.to_dict()
+                plan_chunks = [c.to_dict() for c in ctx_obj.retrieved_chunks]
+            except Exception as rag_err:
+                logger.warning(f"Error assembling RAG context during planning: {rag_err}")
 
         # 7. Formulate Declarative Planned Changes (Non-executable)
         if task.task_type == TaskType.CODE_CHANGE:
@@ -295,4 +376,7 @@ class DeveloperPlanner:
             requires_more_information=requires_more_info,
             missing_information_reason=reason_str,
             confidence=confidence,
+            relevant_experiences=plan_experiences,
+            rag_context=assembled_rag_context,
+            retrieved_chunks=plan_chunks,
         )

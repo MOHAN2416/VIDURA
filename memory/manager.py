@@ -13,6 +13,8 @@ class MemoryManager:
 
     def __init__(self, store: MemoryStore) -> None:
         self.store = store
+        from experience.manager import ExperienceManager
+        self.experience_manager = ExperienceManager(store=self.store)
 
     def remember(
         self,
@@ -96,12 +98,51 @@ class MemoryManager:
         return self.store.list_memories(memory_type=memory_type, limit=limit)
 
     def record_experience(self, record: ExperienceRecord) -> str:
-        """Stores an ExperienceRecord for future self-learning phases."""
-        return self.store.add_experience(record)
+        """Stores an ExperienceRecord with deduplication and historical preservation."""
+        return self.experience_manager.record_experience(record)
 
-    def list_experiences(self, limit: int = 50) -> list[ExperienceRecord]:
-        """Lists experience records."""
-        return self.store.list_experiences(limit=limit)
+    def retrieve_experiences(self, query: Any) -> list[Any]:
+        """Retrieves and ranks experiences matching query filters."""
+        return self.experience_manager.retrieve_experiences(query)
+
+    def derive_lessons(self, component: str | None = None, limit: int = 50) -> list[Any]:
+        """Derives empirical lessons grouped by component and pattern."""
+        return self.experience_manager.derive_lessons(component=component, limit=limit)
+
+    def get_relevant_lessons(self, component: str | None = None, task_type: str | None = None) -> list[Any]:
+        """Returns empirical lessons relevant to component or task type."""
+        return self.experience_manager.get_relevant_lessons(component=component, task_type=task_type)
+
+    def validate_lesson(self, lesson: Any) -> dict[str, Any]:
+        """Validates lesson against stored empirical evidence."""
+        return self.experience_manager.validate_lesson(lesson)
+
+    def get_experience(self, experience_id: str) -> ExperienceRecord | None:
+        """Retrieves a single ExperienceRecord by ID."""
+        return self.store.get_experience(experience_id)
+
+    def delete_experience(self, experience_id: str) -> bool:
+        """Deletes an ExperienceRecord by ID."""
+        return self.store.delete_experience(experience_id)
+
+    def list_experiences(
+        self,
+        task_type: str | None = None,
+        success: bool | None = None,
+        limit: int = 50,
+    ) -> list[ExperienceRecord]:
+        """Lists experience records with optional filtering."""
+        return self.store.list_experiences(task_type=task_type, success=success, limit=limit)
+
+    def search_experiences(
+        self,
+        query: str = "",
+        task_type: str | None = None,
+        success: bool | None = None,
+        limit: int = 50,
+    ) -> list[ExperienceRecord]:
+        """Searches stored experience records."""
+        return self.store.search_experiences(query=query, task_type=task_type, success=success, limit=limit)
 
     def get_context_for_prompt(self, user_request: str) -> str:
         """Recalls relevant user/project memories and returns a concise prompt context string."""

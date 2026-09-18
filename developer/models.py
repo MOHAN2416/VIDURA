@@ -79,6 +79,9 @@ class CodeChangeProposal:
     proposal_id: str | None = None
     provider: str | None = None
     model: str | None = None
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    cloud_request_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.proposal_id:
@@ -101,6 +104,9 @@ class CodeChangeProposal:
             "proposal_id": self.proposal_id,
             "provider": self.provider,
             "model": self.model,
+            "fallback_used": self.fallback_used,
+            "fallback_reason": self.fallback_reason,
+            "cloud_request_id": self.cloud_request_id,
         }
 
     @classmethod
@@ -122,7 +128,11 @@ class CodeChangeProposal:
             proposal_id=data.get("proposal_id"),
             provider=data.get("provider"),
             model=data.get("model"),
+            fallback_used=bool(data.get("fallback_used", False)),
+            fallback_reason=data.get("fallback_reason"),
+            cloud_request_id=data.get("cloud_request_id"),
         )
+
 
 
 @dataclass
@@ -164,6 +174,10 @@ class CodeChangeResult:
     error: str | None = None
     verification_details: dict[str, Any] | None = None
 
+    @property
+    def status(self) -> str:
+        return self.status_code
+
     def to_dict(self) -> dict[str, Any]:
         """Returns a JSON-serializable dictionary representation of the change result."""
         return {
@@ -197,6 +211,9 @@ class DeveloperGenerationResult:
     errors: list[str] = field(default_factory=list)
     provider: str | None = None
     model: str | None = None
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    cloud_request_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Returns a JSON-serializable dictionary representation of generation result."""
@@ -216,6 +233,9 @@ class DeveloperGenerationResult:
             "errors": list(self.errors),
             "provider": self.provider,
             "model": self.model,
+            "fallback_used": self.fallback_used,
+            "fallback_reason": self.fallback_reason,
+            "cloud_request_id": self.cloud_request_id,
         }
 
     @classmethod
@@ -249,10 +269,16 @@ class DeveloperGenerationResult:
                 proposal_id=raw_proposal.get("proposal_id"),
                 provider=raw_proposal.get("provider"),
                 model=raw_proposal.get("model"),
+                fallback_used=bool(raw_proposal.get("fallback_used", False)),
+                fallback_reason=raw_proposal.get("fallback_reason"),
+                cloud_request_id=raw_proposal.get("cloud_request_id"),
             )
 
         prov = data.get("provider") or (proposal_obj.provider if proposal_obj else None)
         mod = data.get("model") or (proposal_obj.model if proposal_obj else None)
+        fb_used = bool(data.get("fallback_used", proposal_obj.fallback_used if proposal_obj else False))
+        fb_reason = data.get("fallback_reason", proposal_obj.fallback_reason if proposal_obj else None)
+        cloud_req_id = data.get("cloud_request_id") or (proposal_obj.cloud_request_id if proposal_obj else None)
 
         return cls(
             target_file=str(data.get("target_file", "")),
@@ -270,7 +296,11 @@ class DeveloperGenerationResult:
             errors=[str(e) for e in data.get("errors", []) if e],
             provider=prov,
             model=mod,
+            fallback_used=fb_used,
+            fallback_reason=fb_reason,
+            cloud_request_id=cloud_req_id,
         )
+
 
 
 @dataclass
@@ -294,6 +324,22 @@ class DeveloperExecutionResult:
     error: str | None = None
     provider: str | None = None
     model: str | None = None
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    cloud_request_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.proposal:
+            if not self.provider and self.proposal.provider:
+                self.provider = self.proposal.provider
+            if not self.model and self.proposal.model:
+                self.model = self.proposal.model
+            if not self.fallback_used and self.proposal.fallback_used:
+                self.fallback_used = self.proposal.fallback_used
+            if self.fallback_reason is None and self.proposal.fallback_reason:
+                self.fallback_reason = self.proposal.fallback_reason
+            if not self.cloud_request_id and getattr(self.proposal, "cloud_request_id", None):
+                self.cloud_request_id = self.proposal.cloud_request_id
 
     def to_dict(self) -> dict[str, Any]:
         """Returns JSON-serializable dictionary representation."""
@@ -316,6 +362,9 @@ class DeveloperExecutionResult:
             "error": self.error,
             "provider": self.provider,
             "model": self.model,
+            "fallback_used": self.fallback_used,
+            "fallback_reason": self.fallback_reason,
+            "cloud_request_id": self.cloud_request_id,
         }
 
     @classmethod
@@ -349,6 +398,11 @@ class DeveloperExecutionResult:
                 is_valid=bool(raw_prop.get("is_valid", True)),
                 validation_error=raw_prop.get("validation_error"),
                 proposal_id=raw_prop.get("proposal_id"),
+                provider=raw_prop.get("provider"),
+                model=raw_prop.get("model"),
+                fallback_used=bool(raw_prop.get("fallback_used", False)),
+                fallback_reason=raw_prop.get("fallback_reason"),
+                cloud_request_id=raw_prop.get("cloud_request_id"),
             )
 
         raw_app = data.get("application_result")
@@ -421,6 +475,10 @@ class DeveloperExecutionResult:
             error=data.get("error"),
             provider=data.get("provider", prop_obj.provider if prop_obj else None),
             model=data.get("model", prop_obj.model if prop_obj else None),
+            fallback_used=bool(data.get("fallback_used", prop_obj.fallback_used if prop_obj else False)),
+            fallback_reason=data.get("fallback_reason", prop_obj.fallback_reason if prop_obj else None),
+            cloud_request_id=data.get("cloud_request_id", prop_obj.cloud_request_id if prop_obj else None),
         )
+
 
 

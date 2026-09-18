@@ -339,3 +339,6 @@ class CodeChangeApplier:
                 status_code=ApplicationStatus.APPLICATION_FAILED.value,
                 error=str(err),
             )
+
+    # Alias for apply_proposal
+    apply = apply_proposal

@@ -19,13 +19,21 @@ class Agent:
         memory_manager: MemoryManager | None = None,
         codebase_manager: CodebaseManager | None = None,
         max_steps: int = 10,
+        rag_manager: Any = None,
     ) -> None:
         self.model = model
         self.tool_registry = tool_registry
         self.memory_manager = memory_manager
         self.codebase_manager = codebase_manager
         self.max_steps = max_steps
-        self.loop = AgentLoop(model=self.model, tool_registry=self.tool_registry, codebase_manager=self.codebase_manager)
+        self.rag_manager = rag_manager
+        self.loop = AgentLoop(
+            model=self.model,
+            tool_registry=self.tool_registry,
+            memory_manager=self.memory_manager,
+            codebase_manager=self.codebase_manager,
+            rag_manager=self.rag_manager,
+        )
         self.session_messages: list[dict[str, str]] = []
         self.last_state: AgentState | None = None
 

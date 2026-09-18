@@ -20,6 +20,15 @@ class AgentState:
     execution_result: Any = None
     final_response: str | None = None
     completed: bool = False
+    requested_provider: str | None = None
+    requested_model: str | None = None
+    actual_provider: str | None = None
+    actual_model: str | None = None
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    cloud_error: str | None = None
+    cloud_request_id: str | None = None
+    usage_metadata: dict[str, Any] | None = None
 
     def is_finished(self) -> bool:
         """Returns True if the agent loop should terminate."""

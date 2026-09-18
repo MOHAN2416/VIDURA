@@ -54,6 +54,9 @@ class DeveloperPlan:
     missing_information_reason: str | None = None
     requires_plan_update: bool = False
     confidence: float = 1.0
+    relevant_experiences: list[dict[str, Any]] = field(default_factory=list)
+    rag_context: dict[str, Any] | None = None
+    retrieved_chunks: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Converts DeveloperPlan into dictionary structure."""
@@ -70,6 +73,9 @@ class DeveloperPlan:
             "missing_information_reason": self.missing_information_reason,
             "requires_plan_update": self.requires_plan_update,
             "confidence": self.confidence,
+            "relevant_experiences": list(self.relevant_experiences),
+            "rag_context": self.rag_context,
+            "retrieved_chunks": list(self.retrieved_chunks),
         }
 
     @classmethod
@@ -105,6 +111,8 @@ class DeveloperPlan:
         planned_changes = _clean_str_list(data.get("planned_changes", []))
         risks = _clean_str_list(data.get("risks", []))
         constraints = _clean_str_list(data.get("constraints", []))
+        raw_exps = data.get("relevant_experiences", [])
+        relevant_experiences = [e for e in raw_exps if isinstance(e, dict)] if isinstance(raw_exps, list) else []
 
         try:
             confidence = float(data.get("confidence", 1.0))
@@ -128,6 +136,9 @@ class DeveloperPlan:
             missing_information_reason=missing_reason_str,
             requires_plan_update=bool(data.get("requires_plan_update", False)),
             confidence=confidence,
+            relevant_experiences=relevant_experiences,
+            rag_context=data.get("rag_context"),
+            retrieved_chunks=[c for c in data.get("retrieved_chunks", []) if isinstance(c, dict)],
         )
 
     def validate(self, workspace_root: Path | None = None) -> tuple[bool, str | None]:

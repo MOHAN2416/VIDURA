@@ -41,16 +41,42 @@ class DeveloperExecutor:
         test_planner: Any = None,
         test_runner: Any = None,
         codebase_manager: Any = None,
+        experience_manager: Any = None,
     ) -> None:
         self.applier = applier
         self.permission_manager = permission_manager or getattr(applier, "permission_manager", None)
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else getattr(applier, "workspace_root", None)
         self.codebase_manager = codebase_manager
+        self.experience_manager = experience_manager
         from developer.testing import TestPlanner, TestRunner
         self.test_planner = test_planner or TestPlanner(workspace_root=self.workspace_root, codebase_manager=self.codebase_manager)
         self.test_runner = test_runner or TestRunner(workspace_root=self.workspace_root, permission_manager=self.permission_manager)
         self.workflow_sm = DeveloperWorkflowStateMachine()
         self._last_execution_result: DeveloperExecutionResult | None = None
+
+    def _record_execution_experience(
+        self,
+        result: DeveloperExecutionResult,
+        plan: DeveloperPlan | None = None,
+    ) -> None:
+        """Records a completed workflow outcome as an experience record with failure safety."""
+        if not self.experience_manager:
+            return
+        try:
+            from experience.extractor import ExperienceExtractor
+            exp = ExperienceExtractor.from_developer_execution(
+                execution_result=result,
+                task=getattr(plan, "original_task", None) if plan else None,
+                plan=plan,
+                provider=result.provider or "",
+                model=result.model or "",
+                fallback_used=result.fallback_used,
+                cloud_request_id=result.cloud_request_id,
+            )
+            self.experience_manager.record_experience(exp)
+            logger.info(f"Recorded execution experience for proposal '{result.proposal_id}' (success={exp.success})")
+        except Exception as err:
+            logger.warning(f"Failed to record execution experience (failure safety engaged): {err}")
 
     def get_pending_proposal(self) -> CodeChangeProposal | None:
         """Returns the currently active pending proposal from the applier."""
@@ -389,6 +415,7 @@ class DeveloperExecutor:
                     model=mod,
                 )
                 self._last_execution_result = result
+                self._record_execution_experience(result, plan=plan)
                 return result
 
             # Step 2: Transition to APPROVED -> APPLYING
@@ -571,6 +598,7 @@ class DeveloperExecutor:
                 model=mod,
             )
             self._last_execution_result = result
+            self._record_execution_experience(result, plan=plan)
             return result
 
         except Exception as exc:
@@ -640,6 +668,7 @@ class DeveloperExecutor:
                 model=deny_mod,
             )
             self._last_execution_result = result
+            self._record_execution_experience(result)
             return result
         except Exception as exc:
             logger.exception(f"Unexpected error in deny_proposal: {exc}")

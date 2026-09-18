@@ -28,6 +28,7 @@ class DeveloperTask:
     expected_behavior: str | None = None
     requires_codebase_analysis: bool = False
     confidence: float = 1.0
+    local_only: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Converts DeveloperTask to dictionary structure."""
@@ -42,6 +43,7 @@ class DeveloperTask:
             "expected_behavior": self.expected_behavior,
             "requires_codebase_analysis": self.requires_codebase_analysis,
             "confidence": self.confidence,
+            "local_only": self.local_only,
         }
 
     @classmethod
@@ -97,4 +99,5 @@ class DeveloperTask:
             expected_behavior=exp_behavior_str,
             requires_codebase_analysis=bool(data.get("requires_codebase_analysis", False)),
             confidence=confidence,
+            local_only=bool(data.get("local_only", False)),
         )

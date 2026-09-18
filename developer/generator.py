@@ -39,9 +39,7 @@ class CodeChangeGenerator:
 
     @property
     def active_model(self) -> BaseLLMProvider | None:
-        """Resolves the dedicated developer model provider if router is configured."""
-        if self.model and hasattr(self.model, "get_developer_provider"):
-            return self.model.get_developer_provider()
+        """Resolves the active model provider (ModelRouter or direct ModelProvider)."""
         return self.model
 
     def _is_protected_target(self, target_path: str | Path) -> bool:
@@ -172,9 +170,32 @@ class CodeChangeGenerator:
         active = self.active_model
         provider_name = None
         model_name = None
+        fallback_used = False
+        fallback_reason = None
+        cloud_req_id = None
         if active:
-            provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
-            model_name = getattr(active, "model_name", None)
+            if hasattr(active, "route"):
+                decision = active.route(
+                    target_file=relative_target,
+                    target_files=[relative_target],
+                    operation=normalized_op,
+                    is_developer_task=True,
+                    task_type="developer",
+                )
+                provider_name = decision.actual_provider or decision.provider
+                model_name = decision.actual_model or decision.model
+                fallback_used = getattr(decision, "fallback_used", False)
+                fallback_reason = getattr(decision, "fallback_reason", None)
+                cloud_req_id = getattr(decision, "cloud_request_id", None)
+            elif hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None)
+            else:
+                provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
+                model_name = getattr(active, "model_name", None)
 
         # 4. Synthesize proposed content using LLM provider or fallback synthesis
         try:
@@ -185,8 +206,20 @@ class CodeChangeGenerator:
                 target_symbol=target_symbol,
                 original_content=original_content,
             )
+            if active and hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None) or cloud_req_id
         except ModelProviderError as err:
             logger.warning(f"Model provider error during proposal synthesis: {err}")
+            if active and hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None) or cloud_req_id
             return CodeChangeProposal(
                 operation=normalized_op,
                 target_file=relative_target,
@@ -197,6 +230,9 @@ class CodeChangeGenerator:
                 validation_error=str(err),
                 provider=provider_name,
                 model=model_name,
+                fallback_used=fallback_used,
+                fallback_reason=fallback_reason,
+                cloud_request_id=cloud_req_id,
             )
 
         proposal = CodeChangeProposal(
@@ -212,7 +248,11 @@ class CodeChangeGenerator:
             validation_error=None,
             provider=provider_name,
             model=model_name,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            cloud_request_id=cloud_req_id,
         )
+
 
         # Register proposal into pending proposal store if applier is present
         if self.applier and hasattr(self.applier, "set_pending_proposal"):
@@ -268,7 +308,14 @@ class CodeChangeGenerator:
         ]
 
         try:
-            raw_res = active.generate(prompt_messages, task_type="developer", is_developer_task=True)
+            raw_res = active.generate(
+                prompt_messages,
+                task_type="developer",
+                is_developer_task=True,
+                target_files=[target_file],
+                target_file=target_file,
+                operation=operation,
+            )
             # Clean json block wrapping if present
             cleaned = raw_res.strip()
             if "```" in cleaned:
@@ -319,6 +366,15 @@ class CodeChangeGenerator:
             cleaned = cleaned[1:-1].strip()
 
         return cleaned
+
+    def generate_proposal_from_plan(
+        self,
+        task: DeveloperTask,
+        plan: DeveloperPlan,
+    ) -> CodeChangeProposal:
+        """Convenience method returning the generated CodeChangeProposal directly."""
+        res = self.generate_from_plan(task=task, plan=plan)
+        return res.proposal
 
     def generate_from_plan(
         self,
@@ -468,9 +524,33 @@ class CodeChangeGenerator:
         active = self.active_model
         provider_name = None
         model_name = None
+        fallback_used = False
+        fallback_reason = None
+        cloud_req_id = None
         if active:
-            provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
-            model_name = getattr(active, "model_name", None)
+            if hasattr(active, "route"):
+                decision = active.route(
+                    task=task,
+                    plan=plan,
+                    target_file=relative_target,
+                    operation=operation,
+                    is_developer_task=True,
+                    local_only=getattr(task, "local_only", False),
+                )
+                provider_name = decision.actual_provider or decision.provider
+                model_name = decision.actual_model or decision.model
+                fallback_used = getattr(decision, "fallback_used", False)
+                fallback_reason = getattr(decision, "fallback_reason", None)
+                cloud_req_id = getattr(decision, "cloud_request_id", None)
+            elif hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None)
+            else:
+                provider_name = getattr(active, "provider_type", None) or ("cloud" if getattr(getattr(active, "capabilities", None), "cloud", False) else "local")
+                model_name = getattr(active, "model_name", None)
 
         try:
             generated_code, explanation, affected_symbols, assumptions = self._synthesize_from_plan(
@@ -480,8 +560,20 @@ class CodeChangeGenerator:
                 operation=operation,
                 original_content=original_content,
             )
+            if active and hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None) or cloud_req_id
         except ModelProviderError as err:
             logger.error(f"Model provider error during code generation: {err}")
+            if active and hasattr(active, "last_decision") and active.last_decision:
+                provider_name = active.last_decision.actual_provider or active.last_decision.provider
+                model_name = active.last_decision.actual_model or active.last_decision.model
+                fallback_used = getattr(active.last_decision, "fallback_used", False)
+                fallback_reason = getattr(active.last_decision, "fallback_reason", None)
+                cloud_req_id = getattr(active.last_decision, "cloud_request_id", None) or cloud_req_id
             return DeveloperGenerationResult(
                 target_file=relative_target,
                 operation=operation,
@@ -497,6 +589,9 @@ class CodeChangeGenerator:
                 errors=[str(err)],
                 provider=provider_name,
                 model=model_name,
+                fallback_used=fallback_used,
+                fallback_reason=fallback_reason,
+                cloud_request_id=cloud_req_id,
             )
 
         # Sanitize code to ensure pure source code
@@ -517,6 +612,9 @@ class CodeChangeGenerator:
             validation_error=None,
             provider=provider_name,
             model=model_name,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            cloud_request_id=cloud_req_id,
         )
 
         # Register proposal with applier if available (Read-Only registration)
@@ -538,7 +636,11 @@ class CodeChangeGenerator:
             errors=[],
             provider=provider_name,
             model=model_name,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            cloud_request_id=cloud_req_id,
         )
+
 
     def _synthesize_from_plan(
         self,
@@ -595,7 +697,14 @@ class CodeChangeGenerator:
 
             return code, explanation, affected_symbols, assumptions
 
-        # LLM Synthesis
+        rag_prompt_section = ""
+        if getattr(plan, "rag_context", None):
+            rag_ctx = plan.rag_context
+            if isinstance(rag_ctx, dict):
+                c_text = rag_ctx.get("context_text") or rag_ctx.get("prompt_text")
+                if c_text:
+                    rag_prompt_section = f"\n{c_text}\n\n"
+
         prompt_messages = [
             {
                 "role": "system",
@@ -631,6 +740,7 @@ class CodeChangeGenerator:
                     f"- Affected Components: {plan.affected_components}\n"
                     f"- Risks: {plan.risks}\n"
                     f"- Constraints: {combined_constraints}\n\n"
+                    f"{rag_prompt_section}"
                     f"Target File: {target_file}\n"
                     f"Operation: {operation}\n"
                     f"Original File Content:\n"
@@ -640,7 +750,16 @@ class CodeChangeGenerator:
         ]
 
         try:
-            raw_res = active.generate(prompt_messages, task_type="developer", is_developer_task=True)
+            raw_res = active.generate(
+                prompt_messages,
+                task=task,
+                plan=plan,
+                task_type="developer",
+                is_developer_task=True,
+                target_file=target_file,
+                operation=operation,
+                local_only=getattr(task, "local_only", False),
+            )
             cleaned = raw_res.strip()
             if "```" in cleaned:
                 match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
